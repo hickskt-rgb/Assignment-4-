@@ -1,177 +1,195 @@
 /*
  * LinkedList.c
- * This file contains all functions for creating, modifying, and managing a linked list
+ * Implementation of singly linked list functions
  */
 
 #include "LinkedList.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 /*
- * Creates a new node with a deep copy of the given data
+ * Creates a new Node with the given data
+ * Allocates memory for both the Node and a copy of the data string
  */
 struct Node* createNode(char* data) {
-    // Check for NULL input
-    if (data == NULL) {
-        return NULL;
-    }
-
-    // Allocate memory for new Node struct
+    // Allocate memory for the new Node
     struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    
+    // Check if allocation was successful
     if (newNode == NULL) {
-        // Memory allocation failed
         return NULL;
     }
-
-    // Allocate memory for character data (string)
-    newNode->data = (char*)malloc((strlen(data) + 1) * sizeof(char));
+    
+    // Allocate memory for the data string (including null terminator)
+    newNode->data = (char*)malloc(strlen(data) + 1);
+    
+    // Check if allocation was successful
     if (newNode->data == NULL) {
-        // Memory allocation for data failed, free the node
         free(newNode);
         return NULL;
     }
-
-    // Copy the string data to newly allocated memory
+    
+    // Copy the data into the newly allocated string
     strcpy(newNode->data, data);
-
-    // Initialize next pointer to NULL (single node)
+    
+    // Initialize next pointer to NULL (single node, not yet in a list)
     newNode->next = NULL;
-
+    
     return newNode;
 }
 
 /*
- * Insert a node at the end of the linked list
- * Handle both empty list and non-empty list cases
+ * Inserts a node at the end of the linked list
+ * Handles empty lists and updates head pointer if necessary
  */
 void insertAtEnd(struct Node** head, struct Node* newNode) {
-    // Check for NULL parameters
-    if (head == NULL || newNode == NULL) {
+    // Check if head pointer itself is NULL
+    if (head == NULL) {
         return;
     }
     
-    // If list is empty, new node becomes the head
+    // If the list is empty, newNode becomes the head
     if (*head == NULL) {
         *head = newNode;
         return;
     }
     
-    // Traverse to the end of the list
+    // Traverse to the last node in the list
     struct Node* current = *head;
     while (current->next != NULL) {
         current = current->next;
     }
     
-    // Append new node at the end
+    // Insert newNode at the end
     current->next = newNode;
 }
 
 /*
- * Create a linked list from file contents
+ * Creates a linked list from file contents
+ * Reads file line by line and creates a node for each line
  */
 struct Node* createList(FILE* inf) {
-    // Check for NULL file pointer
+    // Check if file pointer is NULL
     if (inf == NULL) {
         return NULL;
     }
     
     struct Node* head = NULL;
-    char fileLine[MAX_LINE_LENGTH];
-
-    while (fgets(fileLine, MAX_LINE_LENGTH, inf) != NULL) {
+    char fileLine[MAX_LINE_LEN];
+    
+    // Read file line by line
+    while (fgets(fileLine, MAX_LINE_LEN, inf) != NULL) {
         // Remove trailing newline character
         fileLine[strcspn(fileLine, "\n")] = 0;
-
+        
+        // Create a new node with the line data
         struct Node* newNode = createNode(fileLine);
-        if (newNode != NULL) {
-            // Insert node at the end of the list
-            insertAtEnd(&head, newNode);
+        
+        // Check if node creation was successful
+        if (newNode == NULL) {
+            // Free any nodes created so far before returning
+            freeList(&head);
+            return NULL;
         }
+        
+        // Insert the new node at the end of the list
+        insertAtEnd(&head, newNode);
     }
+    
     return head;
 }
 
 /*
- * Remove a node at the specified index from the linked list
+ * Removes a node at the specified index from the list
+ * Returns pointer to the removed node (caller must free it)
  */
 struct Node* removeNode(struct Node** head, int index) {
-    // Check for NULL parameters and negative index
-    if (head == NULL || *head == NULL || index < 0) {
+    // Edge case: head pointer is NULL
+    if (head == NULL) {
         return NULL;
     }
-
-    struct Node* current = *head;
-    struct Node* previous = NULL;
     
-    // Special case: removing head node (index 0)
-    if (index == 0) {
-        *head = current->next;
-        current->next = NULL;  // Disconnect from list
-        return current;
+    // Edge case: list is empty
+    if (*head == NULL) {
+        return NULL;
     }
-
-    // Traverse to the node at specified index
+    
+    // Edge case: negative index
+    if (index < 0) {
+        return NULL;
+    }
+    
+    struct Node* removedNode = NULL;
+    
+    // Special case: removing the head node (index 0)
+    if (index == 0) {
+        removedNode = *head;
+        *head = (*head)->next;
+        removedNode->next = NULL; // Disconnect from list
+        return removedNode;
+    }
+    
+    // Traverse to the node before the one to remove
+    struct Node* current = *head;
     int currentIndex = 0;
-    while (current != NULL && currentIndex < index) {
-        previous = current;
+    
+    // Move to the node just before the target index
+    while (current->next != NULL && currentIndex < index - 1) {
         current = current->next;
         currentIndex++;
     }
-
-    // Check if we've gone past the end of the list
-    if (current == NULL) {
+    
+    // Edge case: index out of bounds
+    if (current->next == NULL) {
         return NULL;
     }
-
-    // Remove node from list
-    previous->next = current->next;
-    current->next = NULL;  // Disconnect from list
     
-    return current;
+    // Remove the node at the target index
+    removedNode = current->next;
+    current->next = removedNode->next;
+    removedNode->next = NULL; // Disconnect from list
+    
+    return removedNode;
 }
 
 /*
- * Traverses and prints all nodes in the list
- * Prints each node's data on a new line
+ * Traverses the list and prints each node's data
+ * Prints each node's data on a separate line
  */
 void traverse(struct Node* head) {
     struct Node* current = head;
     
-    // Traverse through entire list
+    // Traverse the entire list
     while (current != NULL) {
-        // Print current node's data
         printf("%s\n", current->data);
-        // Move to next node
         current = current->next;
     }
 }
 
 /*
- * Frees memory for a single node
+ * Frees memory allocated for a single node
+ * Frees both the data string and the node itself
  */
 void freeNode(struct Node* aNode) {
-    // Check for NULL node
+    // Check if node pointer is NULL
     if (aNode == NULL) {
         return;
     }
     
-    // Free the character data first
+    // Free the dynamically allocated data string
     if (aNode->data != NULL) {
         free(aNode->data);
     }
     
-    // Free the Node struct itself
+    // Free the node itself
     free(aNode);
 }
 
 /*
- * Frees memory for entire linked list
- * Traverses list and frees each node
+ * Frees memory for the entire linked list
+ * Iterates through all nodes and frees them
  */
 void freeList(struct Node** head) {
-    // Check for NULL parameters
-    if (head == NULL || *head == NULL) {
+    // Check if head pointer itself is NULL
+    if (head == NULL) {
         return;
     }
     
@@ -180,11 +198,11 @@ void freeList(struct Node** head) {
     
     // Traverse and free each node
     while (current != NULL) {
-        nextNode = current->next;  // Save next node before freeing
-        freeNode(current);          // Free current node
-        current = nextNode;         // Move to next node
+        nextNode = current->next;
+        freeNode(current);
+        current = nextNode;
     }
     
-    // Set head pointer to NULL
+    // Set head to NULL to indicate empty list
     *head = NULL;
 }
